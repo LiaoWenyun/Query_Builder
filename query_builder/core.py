@@ -1,6 +1,5 @@
 import pandas
 import ipywidgets as widgets
-from IPython.display import display
 import pyvo
 from IPython.display import Image, display, clear_output
 
@@ -16,7 +15,10 @@ class QueryBuilder:
         self.condition_list = []
         self.out = widgets.Output(layout=widgets.Layout(width='100%'))
         self.query_out = widgets.Output(layout=widgets.Layout(width='100%'))
-        self.__get_service()        
+        
+    
+    def query_builder(self):
+        self.__get_service()
         
     def __get_service(self):
         service_combobox_list = ['https://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/tap/',
@@ -104,7 +106,11 @@ class QueryBuilder:
         self.other_fields = widgets.interactive_output(
             self.__get_other_fields,
             {'column': self.column_name})
-        column_output_box = widgets.HBox([widgets.Box([self.column_name], layout=widgets.Layout(width = "50%")), widgets.Box([self.other_fields], layout=widgets.Layout(top = "-6px", width = "50%"))])
+        column_output_box = widgets.HBox([widgets.Box([self.column_name],
+                                                      layout=widgets.Layout(width="50%")),
+                                          widgets.Box([self.other_fields],
+                                                      layout=widgets.Layout(top="-6px",
+                                                                            width="50%"))])
         display(column_output_box)
     
     def __get_other_fields(self, column):
@@ -128,11 +134,16 @@ class QueryBuilder:
             style=widgets.ButtonStyle(button_color='#E58975'))
         self.add_button.on_click(self.__button_clicked)
         
-        ui = widgets.HBox([self.method, self.column_value, self.add_button],layout=widgets.Layout(width = '100%'))
+        ui = widgets.HBox([self.method,
+                           self.column_value,
+                           self.add_button],
+                          layout=widgets.Layout(width='100%'))
         display(ui)
         
     def __get_column_list(self, table):
-        output = self.service.search(f"SELECT column_name, datatype from tap_schema.columns WHERE table_name = '{table}' ")
+        query = f"""SELECT column_name, datatype from
+        tap_schema.columns WHERE table_name = '{table}'"""
+        output = self.service.search(query)
         column_lst = [x.decode() for x in list(output['column_name'])]
         type_lst = [x.decode() for x in list(output['datatype'])]
         for i in range(0, len(column_lst)):
@@ -187,7 +198,12 @@ class QueryBuilder:
             elif b.description == 'Clear':
                 self.condition_list = []
             else:
-                self.condition_list.append(f'{self.column_name.value} {self.method.value} {self.column_value.value}')
+                condition_item = f"""
+                {self.column_name.value}
+                {self.method.value}
+                {self.column_value.value}"""
+                
+                self.condition_list.append(condition_item)
             
             self.conditions = widgets.Select(
                     options=self.condition_list,
