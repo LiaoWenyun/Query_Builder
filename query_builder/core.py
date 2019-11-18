@@ -15,6 +15,7 @@ class QueryBuilder:
         self.condition_list = []
         self.out = widgets.Output(layout=widgets.Layout(width='100%'))
         self.query_out = widgets.Output(layout=widgets.Layout(width='100%'))
+        self.query_builder()
         
     
     def query_builder(self):
@@ -70,7 +71,7 @@ class QueryBuilder:
             self.__get_table,
             {'service': self.service_combobox})
         
-        display(self.service_combobox, self.tables, self.output_ui, self.query_out)
+        display(self.query_out, self.service_combobox, self.tables, self.output_ui)
 
     
     def __get_table(self, service):
