@@ -12,11 +12,12 @@ class QueryBuilder:
         self.table_lst = []            # dropdown items for a table
         self.list_of_tables = []       # list of table objects
         self.list_of_on_object = []
+        self.list_of_where_object = []
         table_join_condition = {}
         self.column_type_dictionary ={}
         self.condition_list = []
         self.table_join_out = widgets.Output(layout=widgets.Layout(width='100%'))
-        where_condition_out = widgets.Output(layout=widgets.Layout(width='100%'))
+        self.where_condition_out = widgets.Output(layout=widgets.Layout(width='100%'))
         self.query_out = widgets.Output(layout=widgets.Layout(width='100%'))
         self.selected_columns = '*'
         self.selected_tables = 'b'
@@ -75,9 +76,10 @@ class QueryBuilder:
         self.list_of_tables.append(self.tables_dropdown)
         self.table_text = widgets.Text(value= self.list_of_tables[0].value,
                                        description='')
-        self.columns = widgets.interactive_output(self.__get_columns, {'table_text': self.table_text})
+        self.columns_select = widgets.interactive_output(self.__get_select_columns, {'table_text': self.table_text})
+        self.columns = widgets.interactive_output(self.__set_columns, {'table_text': self.table_text})
         self.trigger_column = widgets.interactive_output(self.__trigger_column_widget, {'table': self.tables_dropdown})
-        display(widgets.HBox([self.tables_dropdown, self.join_button]), self.table_join_out, self.columns)
+        display(widgets.HBox([self.tables_dropdown, self.join_button]), self.table_join_out, self.columns_select, self.columns)
     
                                                          
     def __trigger_column_widget(self, table):
@@ -85,29 +87,17 @@ class QueryBuilder:
         for x in range(1,len(self.list_of_tables)):
             string = string + f"OR table_name='{self.list_of_tables[x].value}' "
         string = string + ")"                                                     
-        self.table_text.value = string        ### triger it here                                        
-    
-    def __get_columns(self, table_text):
+        self.table_text.value = string        ### triger it here
+        
+    def __get_select_columns(self, table_text):
         columns = self.__get_column_list(table_text)
         self.slect_multiple_columns = widgets.SelectMultiple(
             options = columns,
             description='SELECT ',
             disabled=False)
-        self.column_name = widgets.Dropdown(
-            options=columns,
-            description='WHERE',
-            layout=widgets.Layout(flex='1 1 auto',
-                                  width='auto'),
-            style={'description_width': 'initial'})
-        self.other_fields = widgets.interactive_output(
-            self.__get_other_fields, {'column': self.column_name})      
-        column_output_box = widgets.HBox([widgets.Box([self.column_name],
-                                                      layout=widgets.Layout(width="50%")),
-                                          widgets.Box([self.other_fields],
-                                                      layout=widgets.Layout(top="-6px",
-                                                                            width="50%"))])
-        display(self.slect_multiple_columns, column_output_box)
-    
+        display(self.slect_multiple_columns)
+        
+        
     def __get_column_list(self, table_text):
         query = f"""SELECT column_name, datatype from
         tap_schema.columns WHERE """
@@ -118,8 +108,19 @@ class QueryBuilder:
         for i in range(0, len(column_lst)):
             self.column_type_dictionary[column_lst[i]] = type_lst[i]
         return column_lst
+
+    
+    def __set_columns(self, table_text):
+        self.count = 0
+        self.list_of_where_object = []   ##clear the list 
+        self.button_to_trigger = widgets.Button(description = "update")
+        self.button_to_trigger.on_click(self.__column_button_clicked)
+        self.button_to_trigger.click()  ## trigger the button
+        display(self.where_condition_out)
+        
     
     def __get_other_fields(self, column):
+        self.count += 1
         if self.column_type_dictionary[column] == 'char':
             method_list = ['like', 'equal']
         else:
@@ -135,27 +136,72 @@ class QueryBuilder:
             description='')
         
         self.add_button = widgets.Button(
-            description="",
-            icon='plus',
+            description="+",
+            icon='',
+            tooltip=str(self.count),
             style=widgets.ButtonStyle(button_color='#E58975'))
-        self.add_button.on_click(self.__add_button_clicked)
+        self.add_button.on_click(self.__column_button_clicked)
         
-        ui = widgets.HBox([self.method,
-                           self.column_value,
-                           self.add_button],
-                          layout=widgets.Layout(width='100%'))
+        method_ui = widgets.HBox([self.method,
+                                  self.column_value],
+                                 layout=widgets.Layout(width='100%'))
+        ui = widgets.HBox([method_ui, self.add_button])
+        
         display(ui) 
 
-    def __add_button_clicked(self):    ######################need to modify here this function 
-        with where_condition_out:
+    def __column_button_clicked(self,b):    ###################### need to modify here this function
+        with self.where_condition_out:
             clear_output()
-            columns = self.__get_column_list(table_text)
-            self.column_name = widgets.Dropdown(
-            options=columns,
-            description='AND',
-            layout=widgets.Layout(flex='1 1 auto',
-                                  width='auto'),
-            style={'description_width': 'initial'})
+            columns = self.__get_column_list(self.table_text.value)
+            if (b.description == 'update'):
+                if len(self.list_of_where_object) == 0:
+                    column_name = widgets.Dropdown(
+                        options=columns,
+                        description='WHERE',
+                        layout=widgets.Layout(flex='1 1 auto',
+                                              width='auto'),
+                        style={'description_width': 'initial'})
+                    other_fields = widgets.interactive_output(
+                            self.__get_other_fields, {'column': column_name})
+                    column_output_box = widgets.HBox([widgets.Box([column_name],
+                                                                  layout=widgets.Layout(width="50%")),
+                                                      widgets.Box([other_fields],
+                                                                  layout=widgets.Layout(top="-6px",width="50%"))])
+                    self.list_of_where_object.append(column_output_box)
+            elif (b.description == '+'):
+                b.description = '-'
+                column_name = widgets.Dropdown(
+                    options=columns,
+                    description='AND',
+                    layout=widgets.Layout(flex='1 1 auto',
+                                          width='auto'),
+                    style={'description_width': 'initial'})
+                other_fields = widgets.interactive_output(
+                    self.__get_other_fields, {'column': column_name})
+                column_output_box = widgets.HBox([widgets.Box([column_name],
+                                                              layout=widgets.Layout(width="50%")),
+                                                  widgets.Box([other_fields],
+                                                              layout=widgets.Layout(top="-6px",width="50%"))])
+                self.list_of_where_object.append(column_output_box)
+                display(b.tooltip)
+            elif (b.description == '-'):
+                clear =''
+                
+            for where_object in self.list_of_where_object:
+                display(where_object)
+            
+
+
+ #       self.other_fields = widgets.interactive_output(
+ #           self.__get_other_fields, {'column': self.column_name})      
+ #       column_output_box = widgets.HBox([widgets.Box([self.column_name],
+ #                                                     layout=widgets.Layout(width="50%")),
+ #                                         widgets.Box([self.other_fields],
+ #                                                     layout=widgets.Layout(top="-6px",
+ #                                                                           width="50%"))])            
+            
+            
+            
         
         
     def __join_button_clicked(self,b):
@@ -179,14 +225,18 @@ class QueryBuilder:
                 new_tables_dropdown = widgets.Dropdown(
                     options=self.table_list,
                     description='Table',
-                    layout=widgets.Layout( width='50%'),
+                    layout=widgets.Layout( width='600px'),
                     style={'description_width': 'initial'})
                 self.list_of_tables.append(new_tables_dropdown)   #add into list of table object
                 on_condition = widgets.interactive_output(self.get_on_field,
                                                          {'dropdown1':self.list_of_tables[-2],
                                                           'dropdown2':self.list_of_tables[-1] })
-                on_object_ui = widgets.HBox([self.list_of_tables[-1], on_condition])
-
+        #       on_object_ui = widgets.HBox([self.list_of_tables[-1], on_condition])
+                on_object_ui = widgets.HBox([ widgets.Box([self.list_of_tables[-1]],
+                                                          layout=widgets.Layout(width="40%")),
+                                              widgets.Box([on_condition],
+                                                          layout=widgets.Layout(top="-6px",width="60%"))])
+                                                          
                 self.list_of_on_object.append(on_object_ui)     #add into on condition object
             elif b.description == "REMOVE":
                 self.list_of_tables.pop()
@@ -224,7 +274,7 @@ class QueryBuilder:
         options_dropdown = widgets.Dropdown(
                     options=options,
                     description='ON',
-                    layout=widgets.Layout(width='100%'))
+                    layout=widgets.Layout( width='1500px'))
         #### change the column field list 
         if (len(options))>0:
             string = f"(table_name='{self.list_of_tables[0].value}' "
