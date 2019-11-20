@@ -112,7 +112,7 @@ class QueryBuilder:
 
     
     def __set_columns(self, table_text):
-        self.list_of_where_object = []   ##clear the list 
+        self.list_of_where_object = {}   ##clear the list 
         self.button_to_trigger = widgets.Button(description = "update")
         self.button_to_trigger.on_click(self.__column_button_clicked)
         self.button_to_trigger.click()  ## trigger the button
@@ -145,7 +145,7 @@ class QueryBuilder:
         with self.where_condition_out:
             clear_output()
             columns = self.__get_column_list(self.table_text.value)
-            if (b.description == 'update'):
+            """if (b.description == 'update'):
                 if len(self.list_of_where_object) == 0:
                     self.create_new_flag = 1
                     column_name = widgets.Dropdown(
@@ -167,16 +167,19 @@ class QueryBuilder:
                                                                   layout=widgets.Layout(top="-6px",width="45%")),
                                                       widgets.Box([add_button],
                                                                  layout=widgets.Layout(width="10%"))])
-                    self.list_of_where_object[self.count] = column_output_box
-                    self.count += 1
+                    self.list_of_where_object[str(self.count)] = column_output_box
+                    self.count += 1"""
 
 
-            elif (b.description == '+'):
+            if (b.description == '+' or b.description == 'update'):
+                description = 'WHERE'
+                if len(self.list_of_where_object) != 0:
+                    b.description = '-'
+                    description = 'AND'
                 self.create_new_flag = 1
-                b.description = '-'
                 column_name = widgets.Dropdown(
                     options=columns,
-                    description='AND',
+                    description=description,
                     layout=widgets.Layout(flex='1 1 auto',
                                           width='auto'),
                     style={'description_width': 'initial'})
@@ -193,11 +196,13 @@ class QueryBuilder:
                                                               layout=widgets.Layout(top="-6px",width="45%")),
                                                   widgets.Box([add_button],
                                                               layout=widgets.Layout(width="10%"))])
-                self.list_of_where_object[self.count] = column_output_box
+                self.list_of_where_object[str(self.count)] = column_output_box
                 self.count += 1
                 
-            elif (b.description == '-'):
-                del self.list_of_where_object[int(b.tooltip)]
+            elif (b.description == '-'): 
+                del self.list_of_where_object[b.tooltip]
+                list(self.list_of_where_object.values())[0].children[0].children[0].description = 'WHERE'
+                    
 
             for key in self.list_of_where_object.keys():
                 display(self.list_of_where_object[key])
