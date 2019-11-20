@@ -9,11 +9,12 @@ __all__ = ['QueryBuilder']
 
 class QueryBuilder:
     def __init__(self):
-        self.table_lst = []            # dropdown items for a table
-        self.list_of_tables = []       # list of table objects
-        self.list_of_on_object = []
-        self.list_of_where_object = []
-        table_join_condition = {}
+        self.table_lst = []              # dropdown items for a table
+        self.list_of_tables = []         # list of table objects
+        self.list_of_on_object = []      # list of on_condition objects
+        self.list_of_where_object = {}   # list of where column objects
+        self.count = 0
+        table_join_condition = {}        
         self.column_type_dictionary ={}
         self.condition_list = []
         self.table_join_out = widgets.Output(layout=widgets.Layout(width='100%'))
@@ -111,7 +112,6 @@ class QueryBuilder:
 
     
     def __set_columns(self, table_text):
-        self.count = 0
         self.list_of_where_object = []   ##clear the list 
         self.button_to_trigger = widgets.Button(description = "update")
         self.button_to_trigger.on_click(self.__column_button_clicked)
@@ -120,7 +120,6 @@ class QueryBuilder:
         
     
     def __get_other_fields(self, column):
-        self.count += 1
         if self.column_type_dictionary[column] == 'char':
             method_list = ['like', 'equal']
         else:
@@ -135,19 +134,12 @@ class QueryBuilder:
             placeholder='value',
             description='')
         
-        self.add_button = widgets.Button(
-            description="+",
-            icon='',
-            tooltip=str(self.count),
-            style=widgets.ButtonStyle(button_color='#E58975'))
-        self.add_button.on_click(self.__column_button_clicked)
-        
         method_ui = widgets.HBox([self.method,
                                   self.column_value],
                                  layout=widgets.Layout(width='100%'))
-        ui = widgets.HBox([method_ui, self.add_button])
-        
-        display(ui) 
+        display(method_ui)
+
+
 
     def __column_button_clicked(self,b):    ###################### need to modify here this function
         with self.where_condition_out:
@@ -155,6 +147,7 @@ class QueryBuilder:
             columns = self.__get_column_list(self.table_text.value)
             if (b.description == 'update'):
                 if len(self.list_of_where_object) == 0:
+                    self.create_new_flag = 1
                     column_name = widgets.Dropdown(
                         options=columns,
                         description='WHERE',
@@ -163,12 +156,23 @@ class QueryBuilder:
                         style={'description_width': 'initial'})
                     other_fields = widgets.interactive_output(
                             self.__get_other_fields, {'column': column_name})
+                    add_button = widgets.Button(description="+",
+                                                     icon='',
+                                                     tooltip=str(self.count),
+                                                     style=widgets.ButtonStyle(button_color='#E58975'))
+                    add_button.on_click(self.__column_button_clicked)
                     column_output_box = widgets.HBox([widgets.Box([column_name],
-                                                                  layout=widgets.Layout(width="50%")),
+                                                                  layout=widgets.Layout(width="45%")),
                                                       widgets.Box([other_fields],
-                                                                  layout=widgets.Layout(top="-6px",width="50%"))])
-                    self.list_of_where_object.append(column_output_box)
+                                                                  layout=widgets.Layout(top="-6px",width="45%")),
+                                                      widgets.Box([add_button],
+                                                                 layout=widgets.Layout(width="10%"))])
+                    self.list_of_where_object[self.count] = column_output_box
+                    self.count += 1
+
+
             elif (b.description == '+'):
+                self.create_new_flag = 1
                 b.description = '-'
                 column_name = widgets.Dropdown(
                     options=columns,
@@ -178,31 +182,25 @@ class QueryBuilder:
                     style={'description_width': 'initial'})
                 other_fields = widgets.interactive_output(
                     self.__get_other_fields, {'column': column_name})
+                add_button = widgets.Button(description="+",
+                                                     icon='',
+                                                     tooltip=str(self.count),
+                                                     style=widgets.ButtonStyle(button_color='#E58975'))
+                add_button.on_click(self.__column_button_clicked)
                 column_output_box = widgets.HBox([widgets.Box([column_name],
-                                                              layout=widgets.Layout(width="50%")),
+                                                              layout=widgets.Layout(width="45%")),
                                                   widgets.Box([other_fields],
-                                                              layout=widgets.Layout(top="-6px",width="50%"))])
-                self.list_of_where_object.append(column_output_box)
-                display(b.tooltip)
-            elif (b.description == '-'):
-                clear =''
+                                                              layout=widgets.Layout(top="-6px",width="45%")),
+                                                  widgets.Box([add_button],
+                                                              layout=widgets.Layout(width="10%"))])
+                self.list_of_where_object[self.count] = column_output_box
+                self.count += 1
                 
-            for where_object in self.list_of_where_object:
-                display(where_object)
-            
+            elif (b.description == '-'):
+                del self.list_of_where_object[int(b.tooltip)]
 
-
- #       self.other_fields = widgets.interactive_output(
- #           self.__get_other_fields, {'column': self.column_name})      
- #       column_output_box = widgets.HBox([widgets.Box([self.column_name],
- #                                                     layout=widgets.Layout(width="50%")),
- #                                         widgets.Box([self.other_fields],
- #                                                     layout=widgets.Layout(top="-6px",
- #                                                                           width="50%"))])            
-            
-            
-            
-        
+            for key in self.list_of_where_object.keys():
+                display(self.list_of_where_object[key])
         
     def __join_button_clicked(self,b):
         with self.table_join_out:
@@ -231,7 +229,6 @@ class QueryBuilder:
                 on_condition = widgets.interactive_output(self.get_on_field,
                                                          {'dropdown1':self.list_of_tables[-2],
                                                           'dropdown2':self.list_of_tables[-1] })
-        #       on_object_ui = widgets.HBox([self.list_of_tables[-1], on_condition])
                 on_object_ui = widgets.HBox([ widgets.Box([self.list_of_tables[-1]],
                                                           layout=widgets.Layout(width="40%")),
                                               widgets.Box([on_condition],
