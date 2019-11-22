@@ -9,12 +9,10 @@ __all__ = ['QueryBuilder']
 
 class QueryBuilder:
     def __init__(self):
-        self.index_list = []
-        self.selected_on_field = [None]*5
-        self.table_lst = []              # dropdown items for a table
-        self.list_of_tables = []         # list of table objects
-        self.list_of_on_object = []      # list of on_condition objects
-    #    self.list_of_where_object = {}   # list of where column objects
+        self.selected_on_field = [None]*5  # hardcode max join tables
+        self.table_lst = []                # dropdown items for a table
+        self.list_of_tables = []           # list of table objects
+        self.list_of_on_object = []        # list of on_condition objects
         self.count = 0
         table_join_condition = {}        
         self.column_type_dictionary ={}
@@ -23,9 +21,6 @@ class QueryBuilder:
         self.where_condition_out = widgets.Output(layout=widgets.Layout(width='100%'))
         self.query_out = widgets.Output(layout=widgets.Layout(width='100%'))
         self.query_out.layout.border = "1px solid green"
-        self.selected_columns = '*'
-        self.selected_tables = 'b'
-        self.WHERE_Condition = 'WHERE (c)'
         self.view_query_button = widgets.Button(
             description="View Query",
             layout=widgets.Layout(flex='1 1 auto',
@@ -48,14 +43,24 @@ class QueryBuilder:
             where_condition= ""
             if len(self.slect_multiple_columns.value) > 0:
                 for item in self.slect_multiple_columns.value:
-                    selected_columns += f" {item}," 
+                    selected_columns += f" {item},"
             else:
                 selected_columns = " * "
                 
                 
             for key in self.list_of_where_object.keys():
-                item = self.list_of_where_object[key].children[0].children[0]
-                where_condition += f" {item.description} {item.value}"
+                item1 = self.list_of_where_object[key].children[0].children[0]
+                tmp2 = self.tmp_where_condition_dictionary[key].children[0].value
+                tmp3 = self.tmp_where_condition_dictionary[key].children[1].value
+                item2 = tmp2
+                item3 = tmp3
+                if tmp2 == 'like':
+                    item3 = f"'%{tmp3}%'"
+                elif tmp2 == 'equal':
+                    item2 = '='
+                    item3 = f"'{tmp3}'"
+
+                where_condition += f" {item1.description} {item1.value} {item2} {item3} "
                 
             query_body = f"""SELECT{selected_columns[:-1]} FROM {selected_tables} {where_condition}"""
             display(query_body)
@@ -113,7 +118,7 @@ class QueryBuilder:
     
                                                          
     def __trigger_column_widget(self, table):
-        self.selected_tables = table    ######################################## assign selected tables
+        self.selected_tables = table
         string = f"(table_name='{self.list_of_tables[0].value}' "
         for x in range(1,len(self.list_of_tables)):
             string = string + f"OR table_name='{self.list_of_tables[x].value}' "
@@ -142,6 +147,7 @@ class QueryBuilder:
 
     
     def __set_columns(self, table_text):
+        self.tmp_where_condition_dictionary = {}
         self.list_of_where_object = {}   ##clear the list 
         self.button_to_trigger = widgets.Button(description = "update")
         self.button_to_trigger.on_click(self.__column_button_clicked)
@@ -149,11 +155,11 @@ class QueryBuilder:
         display(self.where_condition_out)
         
     
-    def __get_other_fields(self, column):
+    def __get_other_fields(self, column, key):
         if self.column_type_dictionary[column] == 'char':
             method_list = ['like', 'equal']
         else:
-            method_list = ['>', '<', '>=', '<=', '=']
+            method_list = ['>', '<', '>=', '<=', '=', 'between']
             
         self.method = widgets.Dropdown(
             options=method_list,
@@ -167,6 +173,7 @@ class QueryBuilder:
         method_ui = widgets.HBox([self.method,
                                   self.column_value],
                                  layout=widgets.Layout(width='100%'))
+        self.tmp_where_condition_dictionary[key] = method_ui
         display(method_ui)
 
 
@@ -187,8 +194,10 @@ class QueryBuilder:
                     layout=widgets.Layout(flex='1 1 auto',
                                           width='auto'),
                     style={'description_width': 'initial'})
+                save_key = widgets.Text(value=str(self.count)
+                                        ,description='Key')
                 other_fields = widgets.interactive_output(
-                    self.__get_other_fields, {'column': column_name})
+                    self.__get_other_fields, {'column': column_name, 'key':save_key})
                 add_button = widgets.Button(description="+",
                                                      icon='',
                                                      tooltip=str(self.count),
@@ -206,7 +215,7 @@ class QueryBuilder:
             elif (b.description == '-'): 
                 del self.list_of_where_object[b.tooltip]
                 list(self.list_of_where_object.values())[0].children[0].children[0].description = 'WHERE'
-                    
+                del self.tmp_where_condition_dictionary[b.tooltip]
 
             for key in self.list_of_where_object.keys():
                 display(self.list_of_where_object[key])
@@ -239,12 +248,11 @@ class QueryBuilder:
                 save_index = widgets.IntText(
                     value=len(self.list_of_tables)-1,
                     description='Any:')
-                self.index_list.append(save_index)
            
                 on_condition = widgets.interactive_output(self.get_on_field,
                                                          {'dropdown1':self.list_of_tables[-2],
                                                           'dropdown2':self.list_of_tables[-1],
-                                                          'index':self.index_list[-1]})
+                                                          'index':save_index})
                 on_object_ui = widgets.HBox([ widgets.Box([self.list_of_tables[-1]],
                                                           layout=widgets.Layout(width="40%")),
                                               widgets.Box([on_condition],
@@ -254,7 +262,6 @@ class QueryBuilder:
             elif b.description == "REMOVE":
                 self.list_of_tables.pop()
                 self.list_of_on_object.pop()
-                self.index_list.pop()
                 self.selected_on_field.pop()
                 #### change the column field list
                 string = f"(table_name='{self.list_of_tables[0].value}' "
@@ -297,11 +304,8 @@ class QueryBuilder:
             string = f"(table_name='{self.list_of_tables[0].value}' "
             for x in range(1,len(self.list_of_tables)):
                 string = string + f"OR table_name='{self.list_of_tables[x].value}' "
-            string = string + ")"                                                     
+            string = string + ")"
             self.table_text.value = string
-
-        
-        ###widgets.interactive_output(self.__get_selected_tables, {'on_condition':options_dropdown}) 
 
         display(widgets.HBox([options_dropdown]),layout=widgets.Layout(width='100%'))
         
