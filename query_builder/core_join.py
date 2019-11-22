@@ -9,10 +9,12 @@ __all__ = ['QueryBuilder']
 
 class QueryBuilder:
     def __init__(self):
+        self.index_list = []
+        self.selected_on_field = [None]*5
         self.table_lst = []              # dropdown items for a table
         self.list_of_tables = []         # list of table objects
         self.list_of_on_object = []      # list of on_condition objects
-        self.list_of_where_object = {}   # list of where column objects
+    #    self.list_of_where_object = {}   # list of where column objects
         self.count = 0
         table_join_condition = {}        
         self.column_type_dictionary ={}
@@ -39,8 +41,7 @@ class QueryBuilder:
             clear_output()
             selected_tables = self.selected_tables
             for i in range (0,len(self.list_of_on_object)):
-                on_condition = list(list(self.list_of_on_object[i].children[1].children[0].outputs[0].values())[1].values())[0].split(",")
-                string = f" JOIN {self.list_of_tables[i+1].value} ON {self.list_of_on_object[i].children[1]}"
+                string = f" JOIN {self.list_of_tables[i+1].value} ON {self.selected_on_field[i+1].value}" 
                 selected_tables += string
             
             selected_columns = ""
@@ -234,9 +235,16 @@ class QueryBuilder:
                     layout=widgets.Layout( width='600px'),
                     style={'description_width': 'initial'})
                 self.list_of_tables.append(new_tables_dropdown)   #add into list of table object
+                #######use a Int widget to store the index
+                save_index = widgets.IntText(
+                    value=len(self.list_of_tables)-1,
+                    description='Any:')
+                self.index_list.append(save_index)
+           
                 on_condition = widgets.interactive_output(self.get_on_field,
                                                          {'dropdown1':self.list_of_tables[-2],
-                                                          'dropdown2':self.list_of_tables[-1] })
+                                                          'dropdown2':self.list_of_tables[-1],
+                                                          'index':self.index_list[-1]})
                 on_object_ui = widgets.HBox([ widgets.Box([self.list_of_tables[-1]],
                                                           layout=widgets.Layout(width="40%")),
                                               widgets.Box([on_condition],
@@ -246,13 +254,15 @@ class QueryBuilder:
             elif b.description == "REMOVE":
                 self.list_of_tables.pop()
                 self.list_of_on_object.pop()
-                #### change the column field list 
+                self.index_list.pop()
+                self.selected_on_field.pop()
+                #### change the column field list
                 string = f"(table_name='{self.list_of_tables[0].value}' "
                 for x in range(1,len(self.list_of_tables)):
                     string = string + f"OR table_name='{self.list_of_tables[x].value}' "
-                string = string + ")"                                                     
-                self.table_text.value = string 
-                #### 
+                string = string + ")"
+                self.table_text.value = string
+                ####
            
             for x in self.list_of_on_object[:-1]:
                 display(x)
@@ -262,7 +272,7 @@ class QueryBuilder:
             else:
                 self.join_button.layout.visibility = 'visible'
                 
-    def get_on_field(self, dropdown1, dropdown2):
+    def get_on_field(self, dropdown1, dropdown2, index):
         lst_items = []
         table_query = f"""SELECT from_table, from_column,target_table,
         target_column FROM tap_schema.keys JOIN tap_schema.key_columns ON
@@ -280,6 +290,8 @@ class QueryBuilder:
                     options=options,
                     description='ON',
                     layout=widgets.Layout( width='1500px'))
+        self.selected_on_field[index] = options_dropdown
+
         #### change the column field list 
         if (len(options))>0:
             string = f"(table_name='{self.list_of_tables[0].value}' "
