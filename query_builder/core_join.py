@@ -46,21 +46,22 @@ class QueryBuilder:
                     selected_columns += f" {item},"
             else:
                 selected_columns = " * "
-                
-                
+            
             for key in self.list_of_where_object.keys():
-                item1 = self.list_of_where_object[key].children[0].children[0]
-                tmp2 = self.tmp_where_condition_dictionary[key].children[0].value
-                tmp3 = self.tmp_where_condition_dictionary[key].children[1].value
-                item2 = tmp2
-                item3 = tmp3
-                if tmp2 == 'like':
-                    item3 = f"'%{tmp3}%'"
-                elif tmp2 == 'equal':
-                    item2 = '='
-                    item3 = f"'{tmp3}'"
-
-                where_condition += f" {item1.description} {item1.value} {item2} {item3} "
+                item1 = self.list_of_where_object[key].children[0].children[0].description
+                item2 = self.list_of_where_object[key].children[0].children[0].value
+                item3 = self.tmp_where_condition_dictionary[key].children[0].value
+                item4 = self.tmp_where_condition_dictionary[key].children[1].value
+                if item3 == 'like':
+                    item4 = f"'%{item4}%'"
+                elif item3 == 'equal':
+                    item3 = '='
+                    item4 = f"'{item4}'"
+                ####TODO: need to check if it is indexed, if yes, need to remove (index), else do nothing
+                if ' (indexed)' in item2:
+                    item2 = item2.replace(' (indexed)', '')
+                #######
+                where_condition += f" {item1} {item2} {item3} {item4} "
                 
             query_body = f"""SELECT{selected_columns[:-1]} FROM {selected_tables} {where_condition}"""
             display(query_body)
@@ -135,13 +136,16 @@ class QueryBuilder:
         
         
     def __get_column_list(self, table_text):
-        query = f"""SELECT column_name, datatype from
+        query = f"""SELECT column_name, indexed, datatype from
         tap_schema.columns WHERE """
         query = query + table_text
         output = self.service.search(query)
         column_lst = [x.decode() for x in list(output['column_name'])]
         type_lst = [x.decode() for x in list(output['datatype'])]
+        indexed_lst = output['indexed']
         for i in range(0, len(column_lst)):
+            if indexed_lst[i] == 1:
+                column_lst[i] = f"{column_lst[i]} (indexed) "
             self.column_type_dictionary[column_lst[i]] = type_lst[i]
         return column_lst
 
