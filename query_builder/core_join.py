@@ -43,6 +43,8 @@ class QueryBuilder:
             where_condition= ""
             if len(self.slect_multiple_columns.value) > 0:
                 for item in self.slect_multiple_columns.value:
+                    if ' (indexed)' in item:
+                        item = item.replace(' (indexed)', '')
                     selected_columns += f" {item},"
             else:
                 selected_columns = " * "
@@ -57,10 +59,9 @@ class QueryBuilder:
                 elif item3 == 'equal':
                     item3 = '='
                     item4 = f"'{item4}'"
-                ####TODO: need to check if it is indexed, if yes, need to remove (index), else do nothing
                 if ' (indexed)' in item2:
                     item2 = item2.replace(' (indexed)', '')
-                #######
+                    
                 where_condition += f" {item1} {item2} {item3} {item4} "
                 
             query_body = f"""SELECT{selected_columns[:-1]} FROM {selected_tables} {where_condition}"""
