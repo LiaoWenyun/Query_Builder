@@ -9,27 +9,100 @@ __all__ = ['QueryBuilder']
 
 class QueryBuilder:
     def __init__(self):
-        self.selected_on_field = [None]*5  # hardcode max join tables
-        self.table_lst = []                # dropdown items for a table
-        self.list_of_tables = []           # list of table objects
-        self.list_of_on_object = []        # list of on_condition objects
+        self.selected_on_field = [None]*20  # hardcode max join tables
+        self.table_lst = []                 # dropdown items for a table
+        self.list_of_tables = []            # list of table objects
+        self.list_of_on_object = []         # list of on_condition objects
         self.count = 0
+        self.count_num_clicks = 0
         table_join_condition = {}        
         self.column_type_dictionary ={}
         self.condition_list = []
+        self.query_body = ""
         self.table_join_out = widgets.Output(layout=widgets.Layout(width='100%'))
         self.where_condition_out = widgets.Output(layout=widgets.Layout(width='100%'))
         self.query_out = widgets.Output(layout=widgets.Layout(width='100%'))
         self.query_out.layout.border = "1px solid green"
+        self.edit_out = widgets.Output(layout=widgets.Layout(width='100%'))
         self.view_query_button = widgets.Button(
             description="View Query",
-            layout=widgets.Layout(flex='1 1 auto',
-                                  width='auto'),
+            layout=widgets.Layout(width='100px'),
             style=widgets.ButtonStyle(button_color='#E58975'))
         self.view_query_button.on_click(self.__display_query)
         display(widgets.HBox([self.view_query_button, self.query_out]))
+        self.clear_button = widgets.Button(
+            description="CLEAR",
+            layout=widgets.Layout(flex='1 1 auto',
+                                  width='auto'),
+            style=widgets.ButtonStyle(button_color='#E58975'))
+        self.clear_button.on_click(self.__clear_button_clicked)
+        self.search_button = widgets.Button(
+            description="SEARCH",
+            layout=widgets.Layout(flex='1 1 auto',
+                                  width='auto'),
+            style=widgets.ButtonStyle(button_color='#E58975'))
+        self.search_button.on_click(self.__search_button_clicked)
+        self.edit_button = widgets.Button(
+            description="EDIT QUERY",
+            layout=widgets.Layout(flex='1 1 auto',
+                                  width='auto'),
+            style=widgets.ButtonStyle(button_color='#E58975'))
+        self.edit_button.on_click(self.__edit_button_clicked)
+        self.tmp_query = widgets.Textarea(
+                description="",
+                value="",
+                layout=widgets.Layout(flex='1 1 auto',
+                                      width='auto'))
+        self.tmp_query.layout.visibility = 'hidden' 
         self.__get_service()
+        display(widgets.HBox([self.clear_button, self.edit_button, self.search_button]))
+        display(self.tmp_query)
+
         
+    def __edit_button_clicked(self, b):
+        with self.edit_out:
+            clear_output()
+            self.count_num_clicks += 1
+            if self.count_num_clicks%2 != 0:
+                self.view_query_button.click()
+                self.tmp_query.value = self.query_body
+                self.__disable_fields(True)
+                self.tmp_query.layout.visibility = 'visible'
+            else:
+                self.__disable_fields(False)
+                self.tmp_query.layout.visibility = 'hidden'
+    
+    
+    def __disable_fields(self, set_disable):
+        self.view_query_button.disabled = set_disable
+        self.service_combobox.disabled = set_disable
+        for i in self.list_of_tables:
+            i.disabled = set_disable
+        for i in self.selected_on_field:
+            if i != None:
+                i.disabled = set_disable
+        self.join_button.disabled = set_disable
+        self.select_multiple_columns.disabled = set_disable
+        if len(self.list_of_on_object) != 0:
+            self.table_object.children[1].disabled = set_disable
+            self.table_object.children[2].disabled = set_disable
+        for i in list(self.list_of_where_object.values()):
+            i.children[0].children[0].disabled = set_disable
+        for i in list(self.list_of_where_object.values()):
+            i.children[2].children[0].disabled = set_disable
+        for i in list(self.tmp_where_condition_dictionary.values()):
+            i.children[0].disabled = set_disable
+        for i in list(self.tmp_where_condition_dictionary.values()):
+            i.children[1].disabled = set_disable
+
+
+                
+    def __search_button_clicked(self, b):
+        return 
+    
+    def __clear_button_clicked(self, b):
+        clear_output()
+        self.__init__()
         
     def __display_query(self, b):
         with self.query_out:
@@ -41,8 +114,8 @@ class QueryBuilder:
             
             selected_columns = ""
             where_condition= ""
-            if len(self.slect_multiple_columns.value) > 0:
-                for item in self.slect_multiple_columns.value:
+            if len(self.select_multiple_columns.value) > 0:
+                for item in self.select_multiple_columns.value:
                     if ' (indexed)' in item:
                         item = item.replace(' (indexed)', '')
                     selected_columns += f" {item},"
@@ -64,8 +137,8 @@ class QueryBuilder:
                     
                 where_condition += f" {item1} {item2} {item3} {item4} "
                 
-            query_body = f"""SELECT{selected_columns[:-1]} FROM {selected_tables} {where_condition}"""
-            display(query_body)
+            self.query_body = f"""SELECT{selected_columns[:-1]} FROM {selected_tables} {where_condition}"""
+            display(self.query_body)
     
     
     def __get_service(self):
@@ -129,11 +202,11 @@ class QueryBuilder:
         
     def __get_select_columns(self, table_text):
         columns = self.__get_column_list(table_text)
-        self.slect_multiple_columns = widgets.SelectMultiple(
+        self.select_multiple_columns = widgets.SelectMultiple(
             options = columns,
             description='SELECT ',
             disabled=False)
-        display(self.slect_multiple_columns)
+        display(self.select_multiple_columns)
         
         
     def __get_column_list(self, table_text):
@@ -232,11 +305,13 @@ class QueryBuilder:
             new_join_button = widgets.Button(
                     description="JOIN",
                     icon='',
+                    layout=widgets.Layout(width='100px'),
                     style=widgets.ButtonStyle(button_color='#E58975'))                
                 
             new_remove_button = widgets.Button(
                     description="REMOVE",
                     icon='',
+                    layout=widgets.Layout(width='170px'),
                     style=widgets.ButtonStyle(button_color='#E58975'))
             new_join_button.on_click(self.__join_button_clicked)
             new_remove_button.on_click(self.__join_button_clicked)
@@ -267,7 +342,6 @@ class QueryBuilder:
             elif b.description == "REMOVE":
                 self.list_of_tables.pop()
                 self.list_of_on_object.pop()
-                self.selected_on_field.pop()
                 #### change the column field list
                 string = f"(table_name='{self.list_of_tables[0].value}' "
                 for x in range(1,len(self.list_of_tables)):
@@ -279,8 +353,8 @@ class QueryBuilder:
             for x in self.list_of_on_object[:-1]:
                 display(x)
             if len(self.list_of_on_object)!= 0:
-                table_object = widgets.HBox([self.list_of_on_object[-1], new_join_button, new_remove_button])
-                display(table_object)
+                self.table_object = widgets.HBox([self.list_of_on_object[-1], new_join_button, new_remove_button])
+                display(self.table_object)
             else:
                 self.join_button.layout.visibility = 'visible'
                 
