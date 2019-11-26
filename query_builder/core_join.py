@@ -16,7 +16,7 @@ class QueryBuilder:
         self.count = 0
         self.count_num_clicks = 0
         table_join_condition = {}        
-        self.column_type_dictionary ={}
+        self.column_type_dictionary = {}
         self.condition_list = []
         self.query_body = ""
         self.table_join_out = widgets.Output(layout=widgets.Layout(width='100%'))
@@ -24,6 +24,7 @@ class QueryBuilder:
         self.query_out = widgets.Output(layout=widgets.Layout(width='100%'))
         self.query_out.layout.border = "1px solid green"
         self.edit_out = widgets.Output(layout=widgets.Layout(width='100%'))
+        self.result = widgets.Output(layout=widgets.Layout(width='100%'))
         self.view_query_button = widgets.Button(
             description="View Query",
             layout=widgets.Layout(width='100px'),
@@ -53,10 +54,11 @@ class QueryBuilder:
                 value="",
                 layout=widgets.Layout(flex='1 1 auto',
                                       width='auto'))
-        self.tmp_query.layout.visibility = 'hidden' 
+        self.tmp_query.layout.visibility = 'hidden'
         self.__get_service()
         display(widgets.HBox([self.clear_button, self.edit_button, self.search_button]))
         display(self.tmp_query)
+        display(self.result)
 
         
     def __edit_button_clicked(self, b):
@@ -96,20 +98,27 @@ class QueryBuilder:
             i.children[1].disabled = set_disable
 
 
-                
+
     def __search_button_clicked(self, b):
-        return 
+        with self.result:
+            clear_output()
+            if self.tmp_query.value != "":
+                result = self.service.search(self.tmp_query.value)
+                display(result)
+            else:
+                display("Empty Query")
+        
     
     def __clear_button_clicked(self, b):
         clear_output()
         self.__init__()
-        
+    
     def __display_query(self, b):
         with self.query_out:
             clear_output()
             selected_tables = self.selected_tables
             for i in range (0,len(self.list_of_on_object)):
-                string = f" JOIN {self.list_of_tables[i+1].value} ON {self.selected_on_field[i+1].value}" 
+                string = f" JOIN {self.list_of_tables[i+1].value} ON {self.selected_on_field[i+1].value}"
                 selected_tables += string
             
             selected_columns = ""
@@ -138,6 +147,7 @@ class QueryBuilder:
                 where_condition += f" {item1} {item2} {item3} {item4} "
                 
             self.query_body = f"""SELECT{selected_columns[:-1]} FROM {selected_tables} {where_condition}"""
+            self.tmp_query.value = self.query_body
             display(self.query_body)
     
     
@@ -297,7 +307,9 @@ class QueryBuilder:
 
             for key in self.list_of_where_object.keys():
                 display(self.list_of_where_object[key])
-        
+    
+    
+    
     def __join_button_clicked(self,b):
         with self.table_join_out:
             clear_output()
@@ -357,6 +369,7 @@ class QueryBuilder:
                 display(self.table_object)
             else:
                 self.join_button.layout.visibility = 'visible'
+    
                 
     def get_on_field(self, dropdown1, dropdown2, index):
         lst_items = []
