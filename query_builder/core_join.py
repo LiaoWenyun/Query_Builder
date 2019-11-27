@@ -107,22 +107,24 @@ class QueryBuilder:
                 display(result)
             else:
                 display("Empty Query")
-        
+    
     
     def __clear_button_clicked(self, b):
         clear_output()
         self.__init__()
     
+    
     def __display_query(self, b):
         with self.query_out:
             clear_output()
+            selected_columns = ""
+            where_condition= ""
+            tmp_where_list = [] 
             selected_tables = self.selected_tables
             for i in range (0,len(self.list_of_on_object)):
                 string = f" JOIN {self.list_of_tables[i+1].value} ON {self.selected_on_field[i+1].value}"
                 selected_tables += string
             
-            selected_columns = ""
-            where_condition= ""
             if len(self.select_multiple_columns.value) > 0:
                 for item in self.select_multiple_columns.value:
                     if ' (indexed)' in item:
@@ -130,7 +132,7 @@ class QueryBuilder:
                     selected_columns += f" {item},"
             else:
                 selected_columns = " * "
-            
+          
             for key in self.list_of_where_object.keys():
                 item1 = self.list_of_where_object[key].children[0].children[0].description
                 item2 = self.list_of_where_object[key].children[0].children[0].value
@@ -143,8 +145,22 @@ class QueryBuilder:
                     item4 = f"'{item4}'"
                 if ' (indexed)' in item2:
                     item2 = item2.replace(' (indexed)', '')
+          
+                tmp_where_list.append([item1, item2, item3, item4])
+            
+            where_length = len(tmp_where_list)
+            
+            for index in range(0, where_length):
+                if tmp_where_list[index][0] == "WHERE" and (tmp_where_list[index][3] == "''" or tmp_where_list[index][3] == "'%%'"):
+                    if where_length >1:
+                        tmp_where_list[index+1][0] == "WHERE"
                     
-                where_condition += f" {item1} {item2} {item3} {item4} "
+                elif tmp_where_list[index][0] == "AND" and (tmp_where_list[index][3] == "''" or tmp_where_list[index][3] == "'%%'"):
+                    pass
+                    
+                else:
+                    where_condition += f" {tmp_where_list[index][0]} {tmp_where_list[index][1]} {tmp_where_list[index][2]} {tmp_where_list[index][3]} "
+                        
                 
             self.query_body = f"""SELECT{selected_columns[:-1]} FROM {selected_tables} {where_condition}"""
             self.tmp_query.value = self.query_body
@@ -220,16 +236,19 @@ class QueryBuilder:
         
         
     def __get_column_list(self, table_text):
-        query = f"""SELECT column_name, indexed, datatype from
+        query = f"""SELECT column_name, table_name, indexed, datatype from
         tap_schema.columns WHERE """
         query = query + table_text
         output = self.service.search(query)
         column_lst = [x.decode() for x in list(output['column_name'])]
+        table_name = [x.decode() for x in list(output['table_name'])]
         type_lst = [x.decode() for x in list(output['datatype'])]
         indexed_lst = output['indexed']
         for i in range(0, len(column_lst)):
             if indexed_lst[i] == 1:
-                column_lst[i] = f"{column_lst[i]} (indexed) "
+                column_lst[i] = f"{table_name[i]}.{column_lst[i]} (indexed) "
+            else: 
+                column_lst[i] = f"{table_name[i]}.{column_lst[i]}"
             self.column_type_dictionary[column_lst[i]] = type_lst[i]
         return column_lst
 
@@ -389,8 +408,9 @@ class QueryBuilder:
                     options=options,
                     description='ON',
                     layout=widgets.Layout( width='1500px'))
+        
         self.selected_on_field[index] = options_dropdown
-
+        
         #### change the column field list 
         if (len(options))>0:
             string = f"(table_name='{self.list_of_tables[0].value}' "
@@ -401,8 +421,6 @@ class QueryBuilder:
 
         display(widgets.HBox([options_dropdown]),layout=widgets.Layout(width='100%'))
         
-
-               
 
         
        
