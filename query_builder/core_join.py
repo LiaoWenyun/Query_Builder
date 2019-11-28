@@ -174,7 +174,8 @@ class QueryBuilder:
                    
                 else:
                     if tmp_where_list[index][0] == "WHERE" and (tmp_where_list[index][3] == "''" or tmp_where_list[index][3] == "'%%'"):
-                        tmp_where_list[index+1][0] = "WHERE"
+                        if index+1 != where_length:
+                            tmp_where_list[index+1][0] = "WHERE"
                         
                     elif tmp_where_list[index][0] == "AND" and (tmp_where_list[index][3] == "''" or tmp_where_list[index][3] == "'%%'"):
                         pass
