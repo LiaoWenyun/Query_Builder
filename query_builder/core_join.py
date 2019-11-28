@@ -17,6 +17,7 @@ class QueryBuilder:
         self.count_num_clicks = 0
         table_join_condition = {}        
         self.column_type_dictionary = {}
+        self.description_dictionary = {}
         self.condition_list = []
         self.query_body = ""
         self.table_join_out = widgets.Output(layout=widgets.Layout(width='100%'))
@@ -53,11 +54,12 @@ class QueryBuilder:
                 description="",
                 value="",
                 layout=widgets.Layout(flex='1 1 auto',
-                                      width='auto'))
+                                      width='auto',
+                                      height='100%'))
         self.tmp_query.layout.visibility = 'hidden'
         self.__get_service()
         display(widgets.HBox([self.clear_button, self.edit_button, self.search_button]))
-        display(self.tmp_query)
+        display(widgets.VBox([self.tmp_query], layout=widgets.Layout(height='200px')))
         display(self.result)
 
         
@@ -117,21 +119,32 @@ class QueryBuilder:
     def __display_query(self, b):
         with self.query_out:
             clear_output()
+            Warn = ""
             selected_columns = ""
             where_condition= ""
-            tmp_where_list = [] 
-            selected_tables = self.selected_tables
+            tmp_where_list = []
+            used_table_list =[self.tables_dropdown.value]
+            selected_tables = self.tables_dropdown.value + " \n"
             for i in range (0,len(self.list_of_on_object)):
-                string = f" JOIN {self.list_of_tables[i+1].value} ON {self.selected_on_field[i+1].value}"
-                selected_tables += string
+                if self.selected_on_field[i+1].value != None:
+                    if self.selected_on_field[i+1].value not in used_table_list:
+                        string = f"JOIN {self.list_of_tables[i+1].value} ON {self.selected_on_field[i+1].value} \n"
+                        selected_tables += string
+                        used_table_list.append(self.selected_on_field[i+1].value)
+                    else:
+                        Warn = "Warning: Duplicated Table"
+                        break
+                else:
+                    Warn = "Warning: On field can not be None"
+                    break
             
             if len(self.select_multiple_columns.value) > 0:
                 for item in self.select_multiple_columns.value:
                     if ' (indexed)' in item:
                         item = item.replace(' (indexed)', '')
-                    selected_columns += f" {item},"
+                    selected_columns += f"{item}, \n"
             else:
-                selected_columns = " * "
+                selected_columns = "* \n" 
           
             for key in self.list_of_where_object.keys():
                 item1 = self.list_of_where_object[key].children[0].children[0].description
@@ -159,12 +172,16 @@ class QueryBuilder:
                     pass
                     
                 else:
-                    where_condition += f" {tmp_where_list[index][0]} {tmp_where_list[index][1]} {tmp_where_list[index][2]} {tmp_where_list[index][3]} "
+                    where_condition += f"{tmp_where_list[index][0]} {tmp_where_list[index][1]} {tmp_where_list[index][2]} {tmp_where_list[index][3]} \n"
                         
                 
-            self.query_body = f"""SELECT{selected_columns[:-1]} FROM {selected_tables} {where_condition}"""
+            self.query_body = f"""SELECT \n{selected_columns[:-1]} \nFROM \n{selected_tables}{where_condition}"""
             self.tmp_query.value = self.query_body
-            display(self.query_body)
+            print(self.query_body)
+            print(Warn)
+        
+    
+    
     
     
     def __get_service(self):
@@ -219,7 +236,7 @@ class QueryBuilder:
     
                                                          
     def __trigger_column_widget(self, table):
-        self.selected_tables = table
+        #self.selected_tables = table
         string = f"(table_name='{self.list_of_tables[0].value}' "
         for x in range(1,len(self.list_of_tables)):
             string = string + f"OR table_name='{self.list_of_tables[x].value}' "
@@ -231,7 +248,8 @@ class QueryBuilder:
         self.select_multiple_columns = widgets.SelectMultiple(
             options = columns,
             description='SELECT ',
-            disabled=False)
+            disabled=False,
+            layout={'width':'500px'})
         display(self.select_multiple_columns)
         
         
@@ -326,6 +344,8 @@ class QueryBuilder:
 
             for key in self.list_of_where_object.keys():
                 display(self.list_of_where_object[key])
+            
+            self.view_query_button.click()                    #################################
     
     
     
@@ -354,6 +374,7 @@ class QueryBuilder:
                     description='Table',
                     layout=widgets.Layout( width='600px'),
                     style={'description_width': 'initial'})
+                widgets.interactive_output(self.__trigger_column_widget, {'table': new_tables_dropdown})
                 self.list_of_tables.append(new_tables_dropdown)   #add into list of table object
                 #######use a Int widget to store the index
                 save_index = widgets.IntText(
@@ -373,13 +394,13 @@ class QueryBuilder:
             elif b.description == "REMOVE":
                 self.list_of_tables.pop()
                 self.list_of_on_object.pop()
-                #### change the column field list
-                string = f"(table_name='{self.list_of_tables[0].value}' "
-                for x in range(1,len(self.list_of_tables)):
-                    string = string + f"OR table_name='{self.list_of_tables[x].value}' "
-                string = string + ")"
-                self.table_text.value = string
-                ####
+            #### change the column field list
+            string = f"(table_name='{self.list_of_tables[0].value}' "
+            for x in range(1,len(self.list_of_tables)):
+                string = string + f"OR table_name='{self.list_of_tables[x].value}' "
+            string = string + ")"
+            self.table_text.value = string
+            ####
            
             for x in self.list_of_on_object[:-1]:
                 display(x)
@@ -388,12 +409,12 @@ class QueryBuilder:
                 display(self.table_object)
             else:
                 self.join_button.layout.visibility = 'visible'
-    
+            self.view_query_button.click()                    #################################
                 
     def get_on_field(self, dropdown1, dropdown2, index):
         lst_items = []
         table_query = f"""SELECT from_table, from_column,target_table,
-        target_column FROM tap_schema.keys JOIN tap_schema.key_columns ON
+        target_column, description FROM tap_schema.keys JOIN tap_schema.key_columns ON
         tap_schema.keys.key_id = tap_schema.key_columns.key_id WHERE
         ( from_table='{dropdown1}' AND target_table='{dropdown2}') OR
         ( from_table='{dropdown2}' AND target_table='{dropdown1}')""" 
@@ -402,13 +423,16 @@ class QueryBuilder:
         lst_from_column = [x.decode() for x in list(On_items['from_column'])]
         lst_target = [x.decode() for x in list(On_items['target_table'])]
         lst_target_column = [x.decode() for x in list(On_items['target_column'])]
+        lst_description = [x.decode() for x in list(On_items['description'])]
         options = [f"""{lst_from[i]}.{lst_from_column[i]} == {lst_target[i]}.{lst_target_column[i]}""" for i in range(0,len(lst_from))]
-
+        for idx in range(0, len(options)):
+            self.description_dictionary[options[idx]] = f"Description: {lst_description[idx]}"
+        
         options_dropdown = widgets.Dropdown(
                     options=options,
                     description='ON',
-                    layout=widgets.Layout( width='1500px'))
-        
+                    layout=widgets.Layout( width='400px'))
+        description_output = widgets.interactive_output(self.__display_description, {"on_condition": options_dropdown})
         self.selected_on_field[index] = options_dropdown
         
         #### change the column field list 
@@ -419,8 +443,10 @@ class QueryBuilder:
             string = string + ")"
             self.table_text.value = string
 
-        display(widgets.HBox([options_dropdown]),layout=widgets.Layout(width='100%'))
+        display(widgets.VBox([options_dropdown, description_output]),layout=widgets.Layout(width='400px'))
         
-
+    def __display_description(self, on_condition):
+        if on_condition != None:
+            display(self.description_dictionary[on_condition])
         
        
