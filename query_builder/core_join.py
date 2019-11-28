@@ -143,6 +143,7 @@ class QueryBuilder:
                     if ' (indexed)' in item:
                         item = item.replace(' (indexed)', '')
                     selected_columns += f"{item}, \n"
+                selected_columns = selected_columns[:-3] + ' '
             else:
                 selected_columns = "* \n" 
           
@@ -162,17 +163,25 @@ class QueryBuilder:
                 tmp_where_list.append([item1, item2, item3, item4])
             
             where_length = len(tmp_where_list)
-            
+          
+        
             for index in range(0, where_length):
-                if tmp_where_list[index][0] == "WHERE" and (tmp_where_list[index][3] == "''" or tmp_where_list[index][3] == "'%%'"):
-                    if where_length >1:
-                        tmp_where_list[index+1][0] == "WHERE"
-                    
-                elif tmp_where_list[index][0] == "AND" and (tmp_where_list[index][3] == "''" or tmp_where_list[index][3] == "'%%'"):
-                    pass
-                    
+                if where_length == 1:
+                    if tmp_where_list[index][0] == "WHERE" and (tmp_where_list[index][3] == "''" or tmp_where_list[index][3] == "'%%'"):     
+                        pass
+                    else:
+                        where_condition += f"{tmp_where_list[index][0]} {tmp_where_list[index][1]} {tmp_where_list[index][2]} {tmp_where_list[index][3]} \n"
+                   
                 else:
-                    where_condition += f"{tmp_where_list[index][0]} {tmp_where_list[index][1]} {tmp_where_list[index][2]} {tmp_where_list[index][3]} \n"
+                    if tmp_where_list[index][0] == "WHERE" and (tmp_where_list[index][3] == "''" or tmp_where_list[index][3] == "'%%'"):
+                        tmp_where_list[index+1][0] = "WHERE"
+                        
+                    elif tmp_where_list[index][0] == "AND" and (tmp_where_list[index][3] == "''" or tmp_where_list[index][3] == "'%%'"):
+                        pass
+                    
+                    else:
+                        
+                        where_condition += f"{tmp_where_list[index][0]} {tmp_where_list[index][1]} {tmp_where_list[index][2]} {tmp_where_list[index][3]} \n"
                         
                 
             self.query_body = f"""SELECT \n{selected_columns[:-1]} \nFROM \n{selected_tables}{where_condition}"""
