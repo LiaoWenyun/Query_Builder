@@ -2,6 +2,7 @@ import pandas
 import ipywidgets as widgets
 import pyvo
 from IPython.display import Image, display, clear_output
+import networkx as nx
 
 __all__ = ['QueryBuilder']
 
@@ -10,7 +11,11 @@ class QueryBuilder:
         
         self.list_of_join_tables = []
         self.schema_table_dictionary = {}
+        self.joinable_dictionary = {}
+        self.on_condition_dictionary = {}
+        self.graph = nx.Graph()
         self.query_out = widgets.Output(layout=widgets.Layout(width='100%'))
+        self.add_button_output = widgets.Output(layout=widgets.Layout(width='100%'))
         self.query_out.layout.border = "1px solid green"        
         self.view_query_button = widgets.Button(
             description="View Query",
@@ -66,16 +71,39 @@ class QueryBuilder:
 
     def __get_schema(self, service):
         try:
+            self.joinable_dictionary = {}
+            self.on_condition_dictionary = {}
             self.service = pyvo.dal.TAPService(service)
             table_query1 = "SELECT schema_name FROM tap_schema.schemas"
             table_query2 = "SELECT schema_name, table_name FROM tap_schema.tables"
+            table_query3 = "SELECT from_table,target_table,from_column,target_column FROM tap_schema.keys JOIN tap_schema.key_columns ON tap_schema.keys.key_id=tap_schema.key_columns.key_id"
             schemas = self.service.search(table_query1)
             tables = self.service.search(table_query2)
+            joinables = self.service.search(table_query3)
             schema_list = [x.decode() for x in list(schemas['schema_name'])]
             table_schema_list = [x.decode() for x in list(tables['schema_name'])]
             table_list = [x.decode() for x in list(tables['table_name'])]
+            from_table_list = [x.decode() for x in list(joinables['from_table'])]
+            target_table_list = [x.decode() for x in list(joinables['target_table'])]
+            from_column_list = [x.decode() for x in list(joinables['from_column'])]
+            target_column_list = [x.decode() for x in list(joinables['target_column'])]
             for idx in range(0, len(table_schema_list)):
                 self.schema_table_dictionary[table_list[idx]] = table_schema_list[idx]
+            for idx in range(0,len(from_table_list)):
+                relationship = f"{from_table_list[idx]} to {target_table_list[idx]}" 
+                on_condition = f"{from_table_list[idx]}.{from_column_list[idx]}={target_table_list[idx]}.{target_column_list[idx]}"
+                if relationship not in self.on_condition_dictionary: 
+                    self.on_condition_dictionary[relationship] = on_condition
+            #### joinable_dictionary is the graph which be used in the BFS later on
+            for table in table_list:
+                self.joinable_dictionary[table] = []
+            for idx in range(0,len(from_table_list)):
+                if target_table_list[idx] not in self.joinable_dictionary[from_table_list[idx]]:
+                    self.joinable_dictionary[from_table_list[idx]].append(target_table_list[idx])
+                    self.joinable_dictionary[target_table_list[idx]].append(from_table_list[idx])
+            for key, value in self.joinable_dictionary.items():
+                for value_item in value:
+                    self.graph.add_edge(key, value_item)
         except Exception:
             print("Service not found")
             return
@@ -96,7 +124,7 @@ class QueryBuilder:
 
         self.list_of_join_tables.append(widgets.HBox([self.table_one, self.join_button]))
         self.table_text = widgets.Text(value=self.list_of_join_tables[0].children[0].value, description='')
-        display(self.list_of_join_tables[0])
+        display(self.list_of_join_tables[0],self.add_button_output)
         
         
     def __display_query(self, b):
@@ -108,7 +136,23 @@ class QueryBuilder:
     
     
     def __add_button_clicked(self, b):
-        val=0
+        with self.add_button_output:
+            clear_output()
+            table = widgets.Dropdown(
+                options=self.__BFS(self.joinable_dictionary,self.list_of_join_tables[0].children[0].value),
+                description='Table',
+                layout=widgets.Layout(flex='1 1 auto',
+                                      width='auto'),
+                style={'description_width': 'initial'})
+            join_button = widgets.Button(
+                description="ADD",
+                icon='',
+                style=widgets.ButtonStyle(button_color='#E58975'))
+            join_button.on_click(self.__add_button_clicked)
+            self.list_of_join_tables.append(widgets.HBox([table, join_button]))
+            display(self.list_of_join_tables[-1].children[0])
+            display(table.options)
+            display(self.list_of_join_tables[-1])
 
 
 
@@ -122,4 +166,32 @@ class QueryBuilder:
         val=0
     def __display_button_clicked(self, b):
         val=0
+        
+        
+    def __BFS(self, graph, selected_node):
+        result = []
+        visited = [False] * (len(graph))
+        queue = []
+        queue.append(selected_node)
+        visited[list(graph.keys()).index(selected_node)] = True
+        
+        while queue:
+            selected_node = queue[0]
+            queue = queue[1:]
+            result.append(selected_node)
+        
+            for i in graph[selected_node]:
+               # print(f"i : {i}")
+                if visited[list(graph.keys()).index(i)] == False: 
+                    queue.append(i)
+                   # print(f"queue : {queue}")
+                   # print(f"visited : {visited}")
+                    visited[list(graph.keys()).index(i)] = True
+            return result[1:]
+        
+        
+        
+    def __shortest_path(self):
+        val = 0
+        
         
