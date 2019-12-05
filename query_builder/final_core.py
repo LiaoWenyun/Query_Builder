@@ -8,9 +8,9 @@ __all__ = ['QueryBuilder']
 
 class QueryBuilder:
     def __init__(self):
-        self.c =0  ########################used for testing, need to remove later 
         self.list_of_join_tables = []
         self.count = 0
+        self.count_num_clicks = 0
         self.schema_table_dictionary = {}
         self.joinable_dictionary = {}
         self.on_condition_dictionary = {}
@@ -19,67 +19,74 @@ class QueryBuilder:
         self.query_out = widgets.Output(layout=widgets.Layout(width='100%'))
         self.add_button_output = widgets.Output(layout=widgets.Layout(width='100%'))
         self.where_condition_out = widgets.Output(layout=widgets.Layout(width='100%'))
-        self.query_out.layout.border = "1px solid green"        
+        self.query_out.layout.border = "1px solid green"
+        self.edit_out = widgets.Output(layout=widgets.Layout(width='100%'))
+        self.result = widgets.Output(layout=widgets.Layout(width='100%'))
         self.view_query_button = widgets.Button(
             description="View Query",
             layout=widgets.Layout(width='100px'),
             style=widgets.ButtonStyle(button_color='#E58975'))
         self.view_query_button.on_click(self.__display_query)
-        display(widgets.HBox([self.view_query_button, self.query_out]))
         
-        self.service_combobox = widgets.Combobox(
-            value='https://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/argus/',
-            options=[],
-            description='Service',
-            continuous_update=False,
+        self.clear_button = widgets.Button(
+            description="CLEAR",
             layout=widgets.Layout(flex='1 1 auto',
                                   width='auto'),
-            style={'description_width': 'initial'})
-        
-        self.schema_dropdown = widgets.Dropdown(
-            options=[],
-            description='Schema',
-            continuous_update=False,
-            layout=widgets.Layout(flex='1 1 auto',
-                                  width='auto'))
-        
-        self.table_one = widgets.Dropdown(
-            options=[],
-            description='Table',
-            layout=widgets.Layout(flex='1 1 auto',
-                                  width='auto'),
-            style={'description_width': 'initial'})
-        
-        self.join_button = widgets.Button(
-            description="ADD",
-            icon='',
             style=widgets.ButtonStyle(button_color='#E58975'))
-        self.join_button.on_click(self.__add_button_clicked)
-        
-        self.column_dropdown = widgets.Dropdown(
-            options=[],
-            description='Columns',
-            continuous_update=False,
+        self.clear_button.on_click(self.__clear_button_clicked)
+        self.search_button = widgets.Button(
+            description="SEARCH",
             layout=widgets.Layout(flex='1 1 auto',
-                                  width='auto'))
+                                  width='auto'),
+            style=widgets.ButtonStyle(button_color='#E58975'))
+        self.search_button.on_click(self.search_button_clicked)
+        self.edit_button = widgets.Button(
+            description="EDIT QUERY",
+            layout=widgets.Layout(flex='1 1 auto',
+                                  width='auto'),
+            style=widgets.ButtonStyle(button_color='#E58975'))
+        self.edit_button.on_click(self.__edit_button_clicked)
+        self.result_query = widgets.Textarea(
+                description="",
+                value="",
+                layout=widgets.Layout(flex='1 1 auto',
+                                      width='auto',
+                                      height='100%'))
         
-
+    
+    
     def Start_query(self):
-        self.__get_service()
-        
+        self.out = widgets.Output()
+        with self.out:
+            display(widgets.HBox([self.view_query_button, self.query_out]))
+            self.__get_service()
+            display(widgets.HBox([self.clear_button, self.edit_button, self.search_button]))
+            display(self.edit_out)
+            display(self.result)
+        display(self.out)
     
     def __get_service(self):
         service_combobox_list = ['https://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/tap/',
                                  'https://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/youcat/',
                                  'https://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/argus/']
         
-        self.service_combobox.options = service_combobox_list 
+        self.service_combobox = widgets.Combobox(
+            value='https://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/argus/',
+            options=service_combobox_list,
+            description='Service',
+            continuous_update=False,
+            layout=widgets.Layout(flex='1 1 auto',
+                                  width='auto'),
+            style={'description_width': 'initial'})
+         
         output_schema = widgets.interactive_output(
             self.__get_schema,
             {'service': self.service_combobox})
         display(widgets.HBox([self.service_combobox, self.schema_dropdown]))
         display(output_schema)
 
+        
+        
     def __get_schema(self, service):
         try:
             self.joinable_dictionary = {}
@@ -122,27 +129,47 @@ class QueryBuilder:
         except Exception:
             print("Service not found")
             return
-        self.schema_dropdown.options = schema_list
+        
+        self.schema_dropdown = widgets.Dropdown(
+            options=schema_list,
+            description='Schema',
+            continuous_update=False,
+            layout=widgets.Layout(flex='1 1 auto',
+                                  width='auto'))
+   
         output_tables = widgets.interactive_output(
             self.__get_table,
             {'schema': self.schema_dropdown})
         display(output_tables)
 
  
-    def __get_table(self, schema):
-        ## clear the join tables 
-        self.list_of_join_tables = []
-        self.add_button_output.clear_output()
-        self.join_button.layout.visibility = 'visible'
-        #####        
-       
+    def __get_table(self, schema):    
+
         table_list = []
         for key, value in self.schema_table_dictionary.items():
             if value == schema:
                 table_list.append(key)
+
+        self.table_one = widgets.Dropdown(
+            options=table_list,
+            description='Table',
+            layout=widgets.Layout(flex='1 1 auto',
+                                  width='auto'),
+            style={'description_width': 'initial'})
         
-        self.table_one.options=table_list
-        self.table_text = widgets.Text(value=f"table_name='{self.table_one.value}'", description='')  ### change this value to trigger columns
+        self.join_button = widgets.Button(
+            description="ADD",
+            icon='',
+            style=widgets.ButtonStyle(button_color='#E58975'))
+        self.join_button.on_click(self.__add_button_clicked)
+        
+        ## clear the join tables 
+        self.list_of_join_tables = []
+        self.add_button_output.clear_output()
+        self.join_button.layout.visibility = 'visible'
+        #####    
+        self.view_query_button.click()
+        self.table_text = widgets.Text(value=self.table_one.value, description='')### change this value to trigger columns
         ouput_columns = widgets.interactive_output(
             self.__get_select_columns,
             {'table_text':self.table_text})
@@ -153,134 +180,9 @@ class QueryBuilder:
             self.__change_columns,
             {'table':self.table_one})
         display(widgets.HBox([self.table_one, self.join_button]),self.add_button_output, ouput_columns, ouput_where_columns)
-        
-        
-
-    def __set_columns(self, table_text):   ########################
-        self.tmp_where_condition_dictionary = {}
-        self.list_of_where_object = {}   ##clear the list 
-        self.button_to_trigger = widgets.Button(description = "update")
-        self.button_to_trigger.on_click(self.__column_button_clicked)
-        self.button_to_trigger.click()  ## trigger the button
-        display(self.where_condition_out)
-        
-    def __get_other_fields(self, column, key):   ##########################
-        if self.column_type_dictionary[column] == 'char':
-            method_list = ['like', 'equal']
-        else:
-            method_list = ['>', '<', '>=', '<=', '=', 'between']
-            
-        self.method = widgets.Dropdown(
-            options=method_list,
-            description='')
-        
-        self.column_value = widgets.Text(
-            value='',
-            placeholder='value',
-            description='')
-        
-        method_ui = widgets.HBox([self.method,
-                                  self.column_value],
-                                 layout=widgets.Layout(width='100%'))
-        self.tmp_where_condition_dictionary[key] = method_ui
-        display(method_ui)
-            
-            
-    def __column_button_clicked(self,b):  ########################
-        print(f"button triggered  {self.c}" )   ########################## used for teating , need to remove later 
-        self.c+=1                    ##############used to test how many time the button itself is triggere, when change a sechema it got triggered 3 times each time 
-        with self.where_condition_out:
-            clear_output()
-            columns = self.__get_column_list(self.table_text.value)
-            if (b.description == '+' or b.description == 'update'):
-                description = 'WHERE'
-                if len(self.list_of_where_object) != 0:
-                    b.description = '-'
-                    description = 'AND'
-                self.create_new_flag = 1
-                column_name = widgets.Dropdown(
-                    options=columns,
-                    description=description,
-                    layout=widgets.Layout(flex='1 1 auto',
-                                          width='auto'),
-                    style={'description_width': 'initial'})
-                save_key = widgets.Text(value=str(self.count)
-                                        ,description='Key')
-                other_fields = widgets.interactive_output(
-                    self.__get_other_fields, {'column': column_name, 'key':save_key})
-                add_button = widgets.Button(description="+",
-                                                     icon='',
-                                                     tooltip=str(self.count),
-                                                     style=widgets.ButtonStyle(button_color='#E58975'))
-                add_button.on_click(self.__column_button_clicked)
-                column_output_box = widgets.HBox([widgets.Box([column_name],
-                                                              layout=widgets.Layout(width="45%")),
-                                                  widgets.Box([other_fields],
-                                                              layout=widgets.Layout(top="-6px",width="45%")),
-                                                  widgets.Box([add_button],
-                                                              layout=widgets.Layout(width="10%"))])
-                self.list_of_where_object[str(self.count)] = column_output_box
-                self.count += 1
-                
-            elif (b.description == '-'): 
-                del self.list_of_where_object[b.tooltip]
-                list(self.list_of_where_object.values())[0].children[0].children[0].description = 'WHERE'
-                del self.tmp_where_condition_dictionary[b.tooltip]
-
-            for key in self.list_of_where_object.keys():
-                display(self.list_of_where_object[key])
-            
-            #self.view_query_button.click()         
-            
-            
-    def __change_columns(self, table):
-        if len(self.list_of_join_tables) == 0:
-            self.table_text.value = f"(table_name='{table}')"
-        else:
-            string = ""
-            for idx in range(0, len(self.list_of_join_tables)):
-                if idx == 0: 
-                     string = f"(table_name='{self.list_of_join_tables[idx].children[0].value}'"
-                else:
-                    string = string + f" OR table_name='{self.list_of_join_tables[idx].children[0].value}'"
-            string += ")"
-            self.table_text.value = string
-
-    def __get_where_columns(self, table_text):
-        columns = self.__get_column_list(table_text)
-        
-        
     
     
-    def __get_select_columns(self, table_text):
-        columns = self.__get_column_list(table_text)
-        self.select_multiple_columns = widgets.SelectMultiple(
-                options = columns,
-                description='SELECT ',
-                disabled=False,
-                layout={'width':'500px'})
-        display(self.select_multiple_columns)
-    
-    
-    
-    def __get_column_list(self, table_text):
-        query = f"""SELECT column_name, table_name, indexed, datatype from
-        tap_schema.columns WHERE """
-        query = query + table_text
-        output = self.service.search(query)
-        column_lst = [x.decode() for x in list(output['column_name'])]
-        table_name = [x.decode() for x in list(output['table_name'])]
-        type_lst = [x.decode() for x in list(output['datatype'])]
-        indexed_lst = output['indexed']
-        for i in range(0, len(column_lst)):
-            if indexed_lst[i] == 1:
-                column_lst[i] = f"{table_name[i]}.{column_lst[i]} (indexed) "
-            else: 
-                column_lst[i] = f"{table_name[i]}.{column_lst[i]}"
-            self.column_type_dictionary[column_lst[i]] = type_lst[i]
-        return column_lst
-        
-        
+            
     
     def __add_button_clicked(self, b):
         with self.add_button_output:
@@ -312,19 +214,9 @@ class QueryBuilder:
 
             for x in self.list_of_join_tables[1:]:
                 display(x)
+            
+            self.view_query_button.click()  
  
-
-
-    def __edit_button_clicked(self, b):
-        val=0
-    def __disable_fields(self, set_disable):
-        val=0
-    def __search_button_clicked(self, b):
-        val=0
-    def __clear_button_clicked(self, b):
-        val=0
-    def __display_button_clicked(self, b):
-        val=0
         
         
     def __BFS(self, graph, selected_node):
@@ -351,28 +243,278 @@ class QueryBuilder:
         return nx.dijkstra_path(self.graph, start, end)
     
     
+        
+
+    def __set_columns(self, table_text):
+        self.tmp_where_condition_dictionary = {}
+        self.list_of_where_object = {}   ## clear the list 
+        self.button_to_trigger = widgets.Button(description = "update")
+        self.button_to_trigger.on_click(self.__column_button_clicked)
+        self.button_to_trigger.click()  ## trigger the button
+        display(self.where_condition_out)
+
+
+    def __get_other_fields(self, column, key):
+        if self.column_type_dictionary[column] == 'char':
+            method_list = ['like', 'equal']
+        else:
+            method_list = ['>', '<', '>=', '<=', '=', 'between']
+            
+        self.method = widgets.Dropdown(
+            options=method_list,
+            description='')
+        
+        self.column_value = widgets.Text(
+            value='',
+            placeholder='value',
+            description='')
+        
+        method_ui = widgets.HBox([self.method,
+                                  self.column_value],
+                                 layout=widgets.Layout(width='100%'))
+        self.tmp_where_condition_dictionary[key] = method_ui
+        display(method_ui)
+            
+            
+    def __column_button_clicked(self,b):
+        with self.where_condition_out:
+            clear_output()
+            try:
+                columns = self.__get_column_list(self.table_text.value)
+                if (b.description == '+' or b.description == 'update'):
+                    description = 'WHERE'
+                    if len(self.list_of_where_object) != 0:
+                        b.description = '-'
+                        description = 'AND'
+                    self.create_new_flag = 1
+                    column_name = widgets.Dropdown(
+                        options=columns,
+                        description=description,
+                        layout=widgets.Layout(flex='1 1 auto',
+                                          width='auto'),
+                        style={'description_width': 'initial'})
+                    save_key = widgets.Text(value=str(self.count)
+                                        ,description='Key')
+                    other_fields = widgets.interactive_output(
+                        self.__get_other_fields, {'column': column_name, 'key':save_key})
+                    add_button = widgets.Button(description="+",
+                                                     icon='',
+                                                     tooltip=str(self.count),
+                                                     style=widgets.ButtonStyle(button_color='#E58975'))
+                    add_button.on_click(self.__column_button_clicked)
+                    column_output_box = widgets.HBox([widgets.Box([column_name],
+                                                              layout=widgets.Layout(width="45%")),
+                                                  widgets.Box([other_fields],
+                                                              layout=widgets.Layout(top="-6px",width="45%")),
+                                                  widgets.Box([add_button],
+                                                              layout=widgets.Layout(width="10%"))])
+                    if(len(list(self.list_of_where_object.values()))>0):
+                        where = list(self.list_of_where_object.values())[-1].children[0].children[0]
+                        where.options = [ where.value]
+                    self.list_of_where_object[str(self.count)] = column_output_box
+                    
+                    self.count += 1
+                
+                elif (b.description == '-'): 
+                    del self.list_of_where_object[b.tooltip]
+                    list(self.list_of_where_object.values())[0].children[0].children[0].description = 'WHERE'
+                    del self.tmp_where_condition_dictionary[b.tooltip]
+
+                for key in self.list_of_where_object.keys():
+                    display(self.list_of_where_object[key])
+                self.view_query_button.click()  
+            
+            except Exception:   ### prevent column list not found error from showing 
+                pass
+                   
+            
+            
+    def __change_columns(self, table):
+        if len(self.list_of_join_tables) == 0:
+            self.table_text.value = f"(table_name='{table}')"
+        else:
+            string = ""
+            for idx in range(0, len(self.list_of_join_tables)):
+                if idx == 0:
+                     string = f"(table_name='{self.list_of_join_tables[idx].children[0].value}'"
+                else:
+                    string = string + f" OR table_name='{self.list_of_join_tables[idx].children[0].value}'"
+            string += ")"
+            self.table_text.value = string
+
+            
+            
+    def __get_where_columns(self, table_text):
+        columns = self.__get_column_list(table_text)
+             
+    
+    
+    def __get_select_columns(self, table_text):
+        columns = self.__get_column_list(table_text)
+        self.select_multiple_columns = widgets.SelectMultiple(
+                options=columns,
+                description='SELECT ',
+                disabled=False,
+                layout={'width':'500px'})
+        self.update_query_button = widgets.Button(
+            description="UPDATE",
+            style=widgets.ButtonStyle(button_color='#E58975'))
+            
+        
+        self.update_query_button.on_click(self.__update_query_clicked)
+        display(widgets.HBox([self.select_multiple_columns,self.update_query_button]))
+    
+    
+    
+    
+    def __get_column_list(self, table_text):
+        query = f"""SELECT column_name, table_name, indexed, datatype from
+        tap_schema.columns WHERE """
+        query = query + table_text
+        output = self.service.search(query)
+        column_lst = [x.decode() for x in list(output['column_name'])]
+        table_name = [x.decode() for x in list(output['table_name'])]
+        type_lst = [x.decode() for x in list(output['datatype'])]
+        indexed_lst = output['indexed']
+        for i in range(0, len(column_lst)):
+            if indexed_lst[i] == 1:
+                column_lst[i] = f"{table_name[i]}.{column_lst[i]} (indexed) "
+            else: 
+                column_lst[i] = f"{table_name[i]}.{column_lst[i]}"
+            self.column_type_dictionary[column_lst[i]] = type_lst[i]
+        return column_lst
+        
+
+    
+    def __edit_button_clicked(self, b):
+        with self.edit_out:
+            clear_output()
+            self.count_num_clicks += 1
+            if self.count_num_clicks%2 != 0:
+                self.view_query_button.click()
+                self.result_query.value = self.query_body
+                self.__disable_fields(True)
+                display(widgets.VBox([self.result_query], layout=widgets.Layout(height='200px')))
+            else:
+                self.__disable_fields(False)
+
+            
+        
+    def __disable_fields(self, set_disable):
+        self.view_query_button.disabled = set_disable
+        self.service_combobox.disabled = set_disable
+        self.schema_dropdown.disabled = set_disable
+        self.table_one.disabled = set_disable
+        self.join_button.disabled = set_disable
+        if len(self.list_of_join_tables)> 0 :
+            for table in self.list_of_join_tables:
+                table.children[0].disabled = set_disable
+                table.children[1].disabled = set_disable
+        self.select_multiple_columns.disabled = set_disable
+        self.update_query_button.disabled = set_disable
+        for i in list(self.list_of_where_object.values()):
+            i.children[0].children[0].disabled = set_disable
+            i.children[2].children[0].disabled = set_disable
+        for i in list(self.tmp_where_condition_dictionary.values()):
+            i.children[0].disabled = set_disable
+            i.children[1].disabled = set_disable
+
+  
+    def search_button_clicked(self, b):
+        with self.result:
+            clear_output()
+            self.view_query_button.click()
+            if self.result_query.value == "":
+                self.result_query.value = self.query_body
+            result = self.service.search(self.result_query.value)
+            display(result)
+            return result
+
+
+    def __clear_button_clicked(self, b):
+        self.out.clear_output()
+        self.__init__()
+        self.Start_query()
+
+    def __update_query_clicked(self, b):
+        self.view_query_button.click()
+
+    
+    
+    
+    
+    
     def __display_query(self, b):
         with self.query_out:
             clear_output()
-            tables =""
+            columns = ""
+            tables = ""
+            wheres = ""
             used_tables = []
-            for index in range(0, len(self.list_of_join_tables)):
-                if index == 0:
-                    tables = f" {self.list_of_join_tables[index].children[0].value}"
-                    used_tables.append(self.list_of_join_tables[index].children[0].value)
-                else:
-                    previous_table = self.list_of_join_tables[index-1].children[0].value
-                    current_table = self.list_of_join_tables[index].children[0].value
-                    if current_table not in used_tables:
-                        used_tables.append(current_table)
-                        join_order = self.__shortest_path(previous_table, current_table)
-                        for i in range(1, len(join_order)):
-                            relationship = f"{join_order[i-1]} to {join_order[i]}" 
-                            on_condition = self.on_condition_dictionary[relationship]
-                            tables = tables + " JOIN " + join_order[i] +" ON " + on_condition +"\n"
+            tmp_where_list = []
+            if len(self.list_of_join_tables) == 0:
+                tables = f"{self.table_one.value}"
+            else :    
+                for index in range(0, len(self.list_of_join_tables)):
+                    if index == 0:
+                        tables = f"{self.list_of_join_tables[index].children[0].value}"
+                        used_tables.append(self.list_of_join_tables[index].children[0].value)
                     else:
+                        previous_table = self.list_of_join_tables[index-1].children[0].value
+                        current_table = self.list_of_join_tables[index].children[0].value
+                        if current_table not in used_tables:
+                            used_tables.append(current_table)
+                            join_order = self.__shortest_path(previous_table, current_table)
+                            for i in range(1, len(join_order)):
+                                relationship = f"{join_order[i-1]} to {join_order[i]}"
+                                on_condition = self.on_condition_dictionary[relationship]
+                                tables = tables + "\n" + "JOIN " + join_order[i] +" ON " + on_condition
+                        else:
+                            pass
+            if len(self.select_multiple_columns.value) == 0:
+                columns = "* \n"
+            else:
+                for item in self.select_multiple_columns.value:
+                    columns += f"{item} \n"
+                    
+            for key in self.list_of_where_object.keys():
+                item1 = self.list_of_where_object[key].children[0].children[0].description
+                item2 = self.list_of_where_object[key].children[0].children[0].value
+                item3 = self.tmp_where_condition_dictionary[key].children[0].value
+                item4 = self.tmp_where_condition_dictionary[key].children[1].value
+                if item3 == 'like':
+                    item4 = f"'%{item4}%'"
+                elif item3 == 'equal':
+                    item3 = '='
+                    item4 = f"'{item4}'"
+                if ' (indexed)' in item2:
+                    item2 = item2.replace(' (indexed)', '')
+          
+                tmp_where_list.append([item1, item2, item3, item4])
+            
+            where_length = len(tmp_where_list)
+            
+            for index in range(0, where_length):
+                if where_length == 1:
+                    if tmp_where_list[index][0] == "WHERE" and (tmp_where_list[index][3] == "" or tmp_where_list[index][3] == "'%%'"):     
                         pass
-            self.query_body = f"""SELECT \n * \nFROM \n{tables}"""
+                    else:
+                        wheres += f"{tmp_where_list[index][0]} {tmp_where_list[index][1]} {tmp_where_list[index][2]} {tmp_where_list[index][3]} \n"
+                   
+                else:
+                    if tmp_where_list[index][0] == "WHERE" and (tmp_where_list[index][3] == "" or tmp_where_list[index][3] == "'%%'"):
+                        if index+1 != where_length:
+                            tmp_where_list[index+1][0] = "WHERE"
+                        
+                    elif tmp_where_list[index][0] == "AND" and (tmp_where_list[index][3] == "" or tmp_where_list[index][3] == "'%%'"):
+                        pass
+                    
+                    else:
+                        
+                        wheres += f"{tmp_where_list[index][0]} {tmp_where_list[index][1]} {tmp_where_list[index][2]} {tmp_where_list[index][3]} \n"
+                    
+            
+            self.query_body = f"""SELECT \n{columns}FROM \n{tables} \n{wheres}"""
             print(self.query_body)
         
         
