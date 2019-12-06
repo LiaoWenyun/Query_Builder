@@ -11,6 +11,7 @@ class QueryBuilder:
         self.list_of_join_tables = []
         self.count = 0
         self.count_num_clicks = 0
+        self.edit_flag = False
         self.schema_table_dictionary = {}
         self.joinable_dictionary = {}
         self.on_condition_dictionary = {}
@@ -34,12 +35,7 @@ class QueryBuilder:
                                   width='auto'),
             style=widgets.ButtonStyle(button_color='#E58975'))
         self.clear_button.on_click(self.__clear_button_clicked)
-        self.search_button = widgets.Button(
-            description="SEARCH",
-            layout=widgets.Layout(flex='1 1 auto',
-                                  width='auto'),
-            style=widgets.ButtonStyle(button_color='#E58975'))
-        self.search_button.on_click(self.search_button_clicked)
+        
         self.edit_button = widgets.Button(
             description="EDIT QUERY",
             layout=widgets.Layout(flex='1 1 auto',
@@ -52,6 +48,7 @@ class QueryBuilder:
                 layout=widgets.Layout(flex='1 1 auto',
                                       width='auto',
                                       height='100%'))
+        self.list_test = [self.clear_button, self.edit_button]
         
     
     
@@ -60,10 +57,11 @@ class QueryBuilder:
         with self.out:
             display(widgets.HBox([self.view_query_button, self.query_out]))
             self.__get_service()
-            display(widgets.HBox([self.clear_button, self.edit_button, self.search_button]))
+            display(widgets.HBox(children=self.list_test))
             display(self.edit_out)
             display(self.result)
         display(self.out)
+    
     
     def __get_service(self):
         service_combobox_list = ['https://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/tap/',
@@ -286,6 +284,7 @@ class QueryBuilder:
                     if len(self.list_of_where_object) != 0:
                         b.description = '-'
                         description = 'AND'
+                        b.style = widgets.ButtonStyle(button_color='#75D4E5')
                     self.create_new_flag = 1
                     column_name = widgets.Dropdown(
                         options=columns,
@@ -303,9 +302,9 @@ class QueryBuilder:
                                                      style=widgets.ButtonStyle(button_color='#E58975'))
                     add_button.on_click(self.__column_button_clicked)
                     column_output_box = widgets.HBox([widgets.Box([column_name],
-                                                              layout=widgets.Layout(width="45%")),
+                                                              layout=widgets.Layout(width="50%")),
                                                   widgets.Box([other_fields],
-                                                              layout=widgets.Layout(top="-6px",width="45%")),
+                                                              layout=widgets.Layout(top="-6px",width="40%")),
                                                   widgets.Box([add_button],
                                                               layout=widgets.Layout(width="10%"))])
                     if(len(list(self.list_of_where_object.values()))>0):
@@ -393,6 +392,7 @@ class QueryBuilder:
             if self.count_num_clicks%2 != 0:
                 self.view_query_button.click()
                 self.result_query.value = self.query_body
+                self.edit_flag = True ######
                 self.__disable_fields(True)
                 display(widgets.VBox([self.result_query], layout=widgets.Layout(height='200px')))
             else:
@@ -419,17 +419,20 @@ class QueryBuilder:
             i.children[0].disabled = set_disable
             i.children[1].disabled = set_disable
 
-  
-    def search_button_clicked(self, b):
-        with self.result:
-            clear_output()
-            self.view_query_button.click()
-            if self.result_query.value == "":
-                self.result_query.value = self.query_body
-            result = self.service.search(self.result_query.value)
-            display(result)
-            return result
 
+    def search_query(self):
+        self.view_query_button.click()
+        if self.edit_flag == True:
+            self.edit_flag = False
+        else: 
+            self.result_query.value = self.query_body
+        self.edit_button.disabled = True
+        self.clear_button.disabled = True
+        result = self.service.search(self.result_query.value)
+        self.edit_button.disabled = False
+        self.clear_button.disabled = False
+        return result
+        
 
     def __clear_button_clicked(self, b):
         self.out.clear_output()
@@ -439,11 +442,7 @@ class QueryBuilder:
     def __update_query_clicked(self, b):
         self.view_query_button.click()
 
-    
-    
-    
-    
-    
+        
     def __display_query(self, b):
         with self.query_out:
             clear_output()
@@ -475,7 +474,10 @@ class QueryBuilder:
                 columns = "* \n"
             else:
                 for item in self.select_multiple_columns.value:
-                    columns += f"{item} \n"
+                    if ' (indexed)' in item:
+                        item = item.replace(' (indexed)', '')
+                    columns += f"{item}, \n"
+                columns = columns[:-3] + ' \n'
                     
             for key in self.list_of_where_object.keys():
                 item1 = self.list_of_where_object[key].children[0].children[0].description
