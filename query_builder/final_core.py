@@ -8,21 +8,6 @@ __all__ = ['QueryBuilder']
 
 class QueryBuilder:
     def __init__(self):
-        self.list_of_join_tables = []
-        self.count = 0
-        self.count_num_clicks = 0
-        self.edit_flag = False
-        self.schema_table_dictionary = {}
-        self.joinable_dictionary = {}
-        self.on_condition_dictionary = {}
-        self.column_type_dictionary ={}
-        self.graph = nx.Graph()
-        self.query_out = widgets.Output(layout=widgets.Layout(width='100%'))
-        self.add_button_output = widgets.Output(layout=widgets.Layout(width='100%'))
-        self.where_condition_out = widgets.Output(layout=widgets.Layout(width='100%'))
-        self.query_out.layout.border = "1px solid green"
-        self.edit_out = widgets.Output(layout=widgets.Layout(width='100%'))
-        self.result = widgets.Output(layout=widgets.Layout(width='100%'))
         self.view_query_button = widgets.Button(
             description="View Query",
             layout=widgets.Layout(width='100px'),
@@ -48,13 +33,34 @@ class QueryBuilder:
                 layout=widgets.Layout(flex='1 1 auto',
                                       width='auto',
                                       height='100%'))
+        self.__initialize()
         self.list_test = [self.clear_button, self.edit_button]
+
+
         
     
+    def __initialize(self):
+        self.list_of_join_tables = []
+        self.count = 0
+        self.count_num_clicks = 0
+        self.edit_flag = False
+        self.schema_table_dictionary = {}
+        self.joinable_dictionary = {}
+        self.on_condition_dictionary = {}
+        self.column_type_dictionary ={}
+        self.graph = nx.Graph()
+        self.query_out = widgets.Output(layout=widgets.Layout(width='100%'))
+        self.add_button_output = widgets.Output(layout=widgets.Layout(width='100%'))
+        self.where_condition_out = widgets.Output(layout=widgets.Layout(width='100%'))
+        self.query_out.layout.border = "1px solid green"
+        self.edit_out = widgets.Output(layout=widgets.Layout(width='100%'))
+        self.result = widgets.Output(layout=widgets.Layout(width='100%'))
+        self.out = widgets.Output()
+        self.view_query_button.disabled = False
     
     def Start_query(self):
-        self.out = widgets.Output()
         with self.out:
+            clear_output()
             display(widgets.HBox([self.view_query_button, self.query_out]))
             self.__get_service()
             display(widgets.HBox(children=self.list_test))
@@ -265,14 +271,18 @@ class QueryBuilder:
         self.column_value = widgets.Text(
             value='',
             placeholder='value',
+            continuous_update=False,   #############
             description='')
         
         method_ui = widgets.HBox([self.method,
                                   self.column_value],
                                  layout=widgets.Layout(width='100%'))
         self.tmp_where_condition_dictionary[key] = method_ui
+        widgets.interactive_output(self.__update_on_value, {"value":self.column_value})  ###############
         display(method_ui)
-            
+    
+    def __update_on_value(self, value):   ####
+        self.view_query_button.click()                ####
             
     def __column_button_clicked(self,b):
         with self.where_condition_out:
@@ -355,15 +365,20 @@ class QueryBuilder:
                 description='SELECT ',
                 disabled=False,
                 layout={'width':'500px'})
-        self.update_query_button = widgets.Button(
+        self.update_query_button = widgets.Button(    #######need to remove te button later 
             description="UPDATE",
-            style=widgets.ButtonStyle(button_color='#E58975'))
+            style=widgets.ButtonStyle(button_color='#E58975'),
+            layout=widgets.Layout(left='50px', top='20px'))
+        self.update_query_button.layout.visibility = 'hidden'   ##################################
             
         
         self.update_query_button.on_click(self.__update_query_clicked)
+        #update the query on select_multiple chnage 
+        widgets.interactive_output(self.__update_on_multiple,{'select_multiple':self.select_multiple_columns})#####
         display(widgets.HBox([self.select_multiple_columns,self.update_query_button]))
     
-    
+    def __update_on_multiple(self,select_multiple):   ####
+        self.view_query_button.click()                ####
     
     
     def __get_column_list(self, table_text):
@@ -436,7 +451,7 @@ class QueryBuilder:
 
     def __clear_button_clicked(self, b):
         self.out.clear_output()
-        self.__init__()
+        self.__initialize()
         self.Start_query()
 
     def __update_query_clicked(self, b):
